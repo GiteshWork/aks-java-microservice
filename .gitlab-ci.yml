@@ -1,6 +1,6 @@
 # .gitlab-ci.yml
 
-# Defines the stages and their order of execution.
+
 stages:
   - build
   - test
