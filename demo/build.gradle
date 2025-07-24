@@ -1,28 +1,56 @@
+// // build.gradle
+
+// --- PLUGINS ---
+// This section adds capabilities to our project.
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.3'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'java'
+    id 'org.springframework.boot' version '3.3.2'
+    id 'io.spring.dependency-management' version '1.1.5'
+    // This plugin adds the ability to run SonarQube analysis.
+    id "org.sonarqube" version "5.0.0.4638"
 }
 
+// --- PROJECT METADATA ---
 group = 'com.example'
 version = '0.0.1-SNAPSHOT'
 
+// --- JAVA CONFIGURATION ---
+// Specifies that we are using Java version 17.
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(17)
-	}
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
+// --- REPOSITORIES ---
+// Tells Gradle where to download our libraries from.
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
+// --- DEPENDENCIES ---
+// The list of libraries our project needs to function.
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // For building the web part of your application (e.g., HelloController).
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    // For running tests.
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// --- TEST CONFIGURATION ---
+// Configures how tests are run.
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform()
+}
+
+// --- SONARQUBE CONFIGURATION ---
+// This block connects our project to your SonarCloud account.
+// The projectKey and organization values are from your SonarCloud setup.
+sonarqube {
+    properties {
+        property "sonar.projectKey", "GiteshWork_aks-java-demo-deleted-71830376"
+        property "sonar.organization", "giteshwork"
+        property "sonar.host.url", "https://sonarcloud.io"
+    }
 }

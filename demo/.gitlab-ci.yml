@@ -1,0 +1,81 @@
+# .gitlab-ci.yml
+
+stages:
+  - build
+  - test
+  - package
+  - deploy # New stage for deployment automation
+
+# --- Job 1: Build the Java Application ---
+build-job:
+  stage: build
+  image: gradle:8.8-jdk17-alpine
+  script:
+    - echo "Compiling the code and running tests..."
+    - gradle build
+  artifacts:
+    paths:
+      - build/libs/*.jar
+    reports:
+      junit: build/test-results/test/*.xml
+
+# --- Job 2: Analyze Code Quality with SonarQube ---
+sonar-scan-job:
+  stage: test
+  image: gradle:8.8-jdk17-alpine
+  script:
+    - echo "Running SonarQube analysis..."
+    - >
+      gradle sonar
+      --info
+      -Dsonar.qualitygate.wait=true
+      -Dsonar.host.url=$SONAR_HOST_URL
+      -Dsonar.login=$SONAR_TOKEN
+
+# --- Job 3: Build and Push Docker Image ---
+package-job:
+  stage: package
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login $ACR_URL -u $ACR_SP_USERNAME -p $ACR_SP_PASSWORD
+  script:
+    - echo "Building and pushing Docker image to Azure Container Registry..."
+    - IMAGE_TAG="$ACR_URL/aks-demo-app:$CI_COMMIT_SHORT_SHA"
+    - docker build -t $IMAGE_TAG .
+    - docker push $IMAGE_TAG
+  dependencies:
+    - build-job
+
+# --- Job 4: Update Kubernetes Manifest in Config Repo ---
+update-manifest-job:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    # Install necessary tools (git, openssh, base64) in the lightweight alpine image
+    - apk update && apk add git openssh-client coreutils
+    # Set up the SSH key for authentication with the config repository
+    - eval $(ssh-agent -s)
+    # Decode the base64 encoded private key and add it to the ssh-agent
+    - echo "$GIT_SSH_PRIVATE_KEY" | base64 -d | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    # Add GitLab's SSH host key to known_hosts to avoid interactive prompts
+    - ssh-keyscan gitlab.com >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    # Configure git with a user name and email for the commit
+    - git config --global user.email "pipeline@example.com"
+    - git config --global user.name "GitLab CI Pipeline"
+  script:
+    - echo "Cloning the configuration repository..."
+    # Use the SSH URL for cloning (replace with your actual URL)
+    - git clone git@gitlab.com:giteshwork-group/aks-java-demo-config.git
+    - cd aks-java-demo-config
+    - echo "Updating image tag to $CI_COMMIT_SHORT_SHA..."
+    # Use 'sed' to find and replace the image tag in the deployment file
+    - sed -i "s|image: .*|image: $ACR_URL/aks-demo-app:$CI_COMMIT_SHORT_SHA|g" deployment.yaml
+    - echo "Committing and pushing the updated manifest..."
+    - git add deployment.yaml
+    - git commit -m "Update image to $CI_COMMIT_SHORT_SHA"
+    - git push origin main
