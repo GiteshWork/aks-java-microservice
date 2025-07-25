@@ -1,31 +1,26 @@
 <div align="center">
 
-🚀 End-to-End Cloud-Native Delivery Platform on Azure 🚀
+🚀 End-to-End CI/CD Platform on Azure with GitLab and GitOps 🚀
 </div>
 
-This repository contains the source code and CI/CD pipeline configuration for a production-grade, fully automated software delivery platform built on Microsoft Azure. The project demonstrates a modern approach to deploying a Java microservice to Kubernetes using GitOps principles, Infrastructure as Code, and a security-first mindset.
+This project demonstrates the creation of a complete, production-grade CI/CD and GitOps platform on Microsoft Azure. It provisions an Azure Kubernetes Service (AKS) cluster using Azure Bicep, deploys a Java microservice, and establishes a fully automated workflow from code commit to live deployment using GitLab CI and Argo CD.
 
-The goal of this project is to create a complete, touchless workflow that takes a code change from a developer's machine and safely deploys it to a live Kubernetes cluster with no manual intervention.
+Project Objective
+To build an end-to-end, automated deployment pipeline showcasing proficiency in:
 
-🏛️ Architecture Diagram
-The following diagram illustrates the complete workflow, from code commit to live deployment:
+Cloud Infrastructure Provisioning (Azure)
 
-💡 Key Features
-Automated CI/CD: The entire build, test, and deployment process is automated using GitLab CI.
+Infrastructure as Code (Azure Bicep)
 
-Infrastructure as Code (IaC): All Azure resources (AKS, ACR, etc.) are defined declaratively using Azure Bicep for repeatable and version-controlled environments.
+Container Orchestration (Kubernetes on AKS)
 
-GitOps-Powered Deployments: Continuous Deployment is managed by Argo CD, which uses a dedicated Git repository as the single source of truth for the application's state in Kubernetes.
+Continuous Integration & Delivery (GitLab CI, Argo CD)
 
-Integrated Code Quality & Security: SonarCloud is integrated directly into the CI pipeline, acting as a quality gate to block vulnerabilities and low-quality code before deployment.
+GitOps Principles
 
-Containerized Application: The Java application is packaged into a minimal, secure Docker container using a multi-stage build process.
+Code Quality & Security Integration (SonarCloud)
 
-Secure Artifact Management: Versioned Docker images are stored in a private Azure Container Registry (ACR).
-
-Advanced Networking & Security: A Service Mesh (Istio) is deployed to provide zero-trust networking (mTLS), traffic management, and deep observability without any changes to the application code.
-
-🛠️ Tech Stack
+Technologies Used
 Category
 
 Technology
@@ -70,79 +65,146 @@ Authentication
 
 Azure AD (Service Principals), SSH Deploy Keys
 
-📚 Project Setup Guide
-To replicate this project, you will need the following prerequisites and must follow the setup steps in order.
+Architecture Diagram
+Project Structure
+This project utilizes two distinct Git repositories to enforce a clean separation between application code and deployment configuration, a core principle of GitOps.
 
-Prerequisites:
-An Azure account with an active subscription.
+Application Repository (aks-java-demo)
 
-A GitLab.com account.
+aks-java-demo/
+├── src/                     # Java application source code
+├── build.gradle             # Gradle build and SonarQube configuration
+├── Dockerfile               # Multi-stage Docker build instructions
+├── .gitlab-ci.yml           # GitLab CI pipeline definition
+├── main.bicep               # Azure Bicep IaC file
+└── README.md                # Project documentation (this file)
 
-A SonarCloud.io account, linked to your GitLab account.
+Configuration Repository (aks-java-demo-config)
 
-The following tools installed locally: Azure CLI, kubectl, Docker Desktop, Git.
+aks-java-demo-config/
+├── deployment.yaml          # Kubernetes Deployment manifest
+└── service.yaml             # Kubernetes Service manifest
 
-Phase 1: Provision Core Infrastructure
-Clone this repository (aks-java-demo).
+Prerequisites
+Before starting, ensure you have the following installed and configured:
 
-Log in to Azure via the CLI: az login.
+Azure Account: With an active subscription.
 
-Create a resource group: az group create --name MyProject-RG --location "East US".
+Azure CLI: Installed and configured (az login).
 
-Deploy the Azure Bicep file to create the AKS cluster and ACR:
+GitLab Account: A free account on GitLab.com.
+
+SonarCloud Account: A free account, linked to your GitLab account.
+
+kubectl: Kubernetes command-line tool.
+
+Docker Desktop: For local container testing.
+
+Git: Version control system.
+
+Setup & Deployment Instructions
+Follow these steps to provision the infrastructure and deploy the application.
+
+Phase 1: Provision Azure Infrastructure using Bicep
+This step creates the AKS cluster and the Azure Container Registry.
+
+Clone the Application Repository:
+
+git clone https://gitlab.com/giteshwork-group/aks-java-demo.git
+cd aks-java-demo
+
+Create an Azure Resource Group:
+
+az group create --name MyProject-RG --location "East US"
+
+Deploy the Bicep Template: This will provision all Azure resources. This step takes 15-25 minutes.
 
 az deployment group create --resource-group MyProject-RG --template-file main.bicep
 
-Configure kubectl to connect to your new cluster:
+Configure kubectl: After the deployment completes, run this command to configure your local kubectl to communicate with your new AKS cluster.
 
 az aks get-credentials --resource-group MyProject-RG --name my-java-aks-cluster
 
-Phase 2: Configure CI/CD Pipeline
-Create Repositories: Create two empty, public repositories on GitLab: aks-java-demo (for this application code) and aks-java-demo-config (for Kubernetes manifests).
+Verify EKS Cluster Nodes: Confirm your worker nodes are Ready.
 
-Push Application Code: Push the code from this project to your aks-java-demo repository.
+kubectl get nodes
 
-Configure ACR Authentication: Create a Service Principal in Azure and assign it the AcrPush role on your ACR instance.
+Phase 2: Install & Configure Argo CD on AKS
+This sets up the GitOps continuous delivery tool inside your cluster.
 
-Configure SonarCloud: Set up your project on SonarCloud and get the organization and project keys.
-
-Set GitLab CI/CD Variables: In the aks-java-demo project settings, configure the following variables:
-
-ACR_URL, ACR_SP_USERNAME, ACR_SP_PASSWORD
-
-SONAR_HOST_URL, SONAR_TOKEN
-
-GIT_SSH_PRIVATE_KEY (for the deploy key to the config repo).
-
-Configure Deploy Key: Add the public part of the SSH key as a "Deploy Key" with write access to the aks-java-demo-config repository.
-
-Phase 3: Configure GitOps & Argo CD
-Create Manifests: In your local clone of the aks-java-demo-config repository, create deployment.yaml and service.yaml files. Push them to the repository.
-
-Install Argo CD: Install Argo CD into your AKS cluster:
+Create argocd Namespace:
 
 kubectl create namespace argocd
+
+Apply Argo CD Installation Manifests:
+
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-Connect AKS to ACR: Grant the AKS cluster pull access to your private ACR:
+Access Argo CD UI via Port-Forwarding: Open a new terminal and run the following command to create a secure tunnel.
+
+kubectl port-forward svc/argocd-server -n argocd 8080:443
+
+Get Argo CD Admin Password:
+
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+
+Access Argo CD UI: Open your browser to https://localhost:8080. Log in with username admin and the password you just copied.
+
+Phase 3: Prepare Repositories and Deploy Application
+This final phase connects all the pieces.
+
+Create the Configuration Repository: In GitLab, create a new, empty, public repository named aks-java-demo-config. Clone it locally, add the deployment.yaml and service.yaml files, and push them to the main branch.
+
+Integrate AKS with ACR: Grant your AKS cluster permissions to pull images from your private ACR.
 
 az aks update -n my-java-aks-cluster -g MyProject-RG --attach-acr <your-acr-name>
 
-Deploy the App via Argo CD: Access the Argo CD UI via port-forwarding and create a new application, pointing it to your aks-java-demo-config repository.
+Deploy the Application via Argo CD:
 
-⚙️ How to Trigger the Automated Workflow
-The entire end-to-end pipeline is triggered by a single action:
+In the Argo CD UI, click "+ NEW APP".
 
-Make a code change in the aks-java-demo application repository.
+Application Name: aks-demo-app
 
-Commit and push the change to the main branch:
+Project Name: default
+
+Sync Policy: Automatic (check Prune Resources and Self Heal)
+
+Repository URL: https://gitlab.com/giteshwork-group/aks-java-demo-config.git
+
+Revision: HEAD
+
+Path: .
+
+Destination Cluster: https://kubernetes.default.svc
+
+Namespace: default
+
+Click CREATE.
+
+Phase 4: Trigger the Full CI/CD Workflow
+Ensure your aks-java-demo application repository is fully configured with the correct .gitlab-ci.yml file and all necessary CI/CD variables (ACR credentials, SonarCloud tokens, and the SSH deploy key).
+
+Make a code change in the aks-java-demo repository.
+
+Commit and push the change to the main branch.
 
 git push origin main
 
-This will automatically kick off the CI pipeline, which in turn will trigger the CD pipeline by updating the configuration repository, leading to an automated deployment in AKS.
+Observe the Automation:
 
-🧹 Cleanup
-To avoid ongoing costs, destroy all created Azure resources by deleting the resource group.
-Warning: This action is irreversible.
+Watch the pipeline run to completion in GitLab.
+
+Check the aks-java-demo-config repository for a new commit made by the pipeline.
+
+Watch in the Argo CD UI as the application automatically syncs and deploys the new version.
+
+Cleanup Instructions
+To avoid further AWS charges, it is CRITICAL to destroy all resources once you are finished.
+
+Navigate to your application directory:
+
+cd aks-java-demo
+
+Destroy all resources: This will remove the AKS cluster, ACR, and all associated networking and storage resources. This step also takes 15-25 minutes.
 
 az group delete --name MyProject-RG --yes --no-wait
